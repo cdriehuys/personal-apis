@@ -143,9 +143,13 @@ def update_remote():
 
     # Run migrations and collect static files
     with cd(settings['remote_project_dir']), prefix(settings['venv_activate']):
-        with prefix('{package}/manage.py'.format(package=settings['project_package'])):
-            run('migrate')
-            run('collecstatic --noinput')
+        manage_cmd = '{package}/manage.py'.format(package=settings['project_package'])
+
+        def management_cmd(cmd):
+            run('{mng} {cmd}'.format(cmd=cmd, mng=manage_cmd))
+
+        management_cmd('migrate')
+        management_cmd('collecstatic --noinput')
 
     sudo('systemctl restart gunicorn')
 

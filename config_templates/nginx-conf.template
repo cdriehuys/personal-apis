@@ -7,7 +7,7 @@ server {
     }
 
     location /static/ {
-        alias {{ static_root }};
+        alias {{ static_root }}/;
     }
 
     location / {

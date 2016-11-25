@@ -19,6 +19,7 @@ from django.contrib import admin
 from rest_framework_jwt.views import obtain_jwt_token, refresh_jwt_token
 
 auth_urls = [
+    url(r'^register/', include('rest_registration.urls', namespace='rest-registration')),
     url(r'^token/$', obtain_jwt_token),
     url(r'^token/refresh/$', refresh_jwt_token),
 ]

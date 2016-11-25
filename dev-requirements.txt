@@ -1,5 +1,6 @@
 -r requirements.txt
 
 fabric3
+factory_boy
 pytest
 pytest-django

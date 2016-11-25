@@ -149,7 +149,7 @@ def update_remote():
             run('{mng} {cmd}'.format(cmd=cmd, mng=manage_cmd))
 
         management_cmd('migrate')
-        management_cmd('collecstatic --noinput')
+        management_cmd('collectstatic --noinput')
 
     sudo('systemctl restart gunicorn')
 

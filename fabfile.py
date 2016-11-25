@@ -41,6 +41,8 @@ def get_local_settings():
     settings['project_env'] = os.path.join(settings['remote_project_dir'], 'env')
 
     # Django Settings
+    settings['django_local_settings'] = os.path.join(settings['remote_project_dir'], settings['project_package'],
+                                                     settings['project_package'], 'local_settings.py')
     settings['django_static_root'] = os.path.join('/', 'var', 'www', env.host, 'static')
 
     # Gunicorn Settings
@@ -119,6 +121,15 @@ def update_remote():
             branch=env.current_branch))
 
     _configure_env()
+
+    # Nuke existing local settings
+    run('rm -f {local_settings}'.format(local_settings=settings['django_local_settings']))
+
+    # Upload new local settings
+    context = {
+        'domain_name': env.host,
+    }
+    _upload_template('config_templates/local_settings', settings['django_local_settings'], context)
 
     sudo('systemctl restart gunicorn')
 

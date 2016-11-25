@@ -96,6 +96,8 @@ def prepare_remote():
 
     This includes installing and configuring the required packages.
     """
+    settings = get_local_settings()
+
     sudo('apt-get update -y')
 
     to_install = ' '.join(required_packages)
@@ -103,6 +105,13 @@ def prepare_remote():
 
     _configure_gunicorn()
     _configure_nginx()
+
+    # Make sure static dir exists
+    sudo('if ! test -d {static_dir}; then mkdir -p {static_dir}; fi'.format(static_dir=settings['django_static_root']))
+    sudo('chown -R {user}:{group} {static_dir}'.format(
+        group=settings['remote_group'],
+        static_dir=settings['django_static_root'],
+        user=settings['remote_user']))
 
 
 @task
@@ -128,13 +137,15 @@ def update_remote():
     # Upload new local settings
     context = {
         'domain_name': env.host,
+        'static_root': settings['django_static_root'],
     }
     _upload_template('config_templates/local_settings.template', settings['django_local_settings'], context)
 
-    # Run migrations
+    # Run migrations and collect static files
     with cd(settings['remote_project_dir']), prefix(settings['venv_activate']):
         with prefix('{package}/manage.py'.format(package=settings['project_package'])):
             run('migrate')
+            run('collecstatic --noinput')
 
     sudo('systemctl restart gunicorn')
 

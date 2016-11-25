@@ -131,6 +131,11 @@ def update_remote():
     }
     _upload_template('config_templates/local_settings.template', settings['django_local_settings'], context)
 
+    # Run migrations
+    with cd(settings['remote_project_dir']), prefix(settings['venv_activate']):
+        with prefix('{package}/manage.py'.format(package=settings['project_package'])):
+            run('migrate')
+
     sudo('systemctl restart gunicorn')
 
 

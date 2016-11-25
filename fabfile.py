@@ -129,7 +129,7 @@ def update_remote():
     context = {
         'domain_name': env.host,
     }
-    _upload_template('config_templates/local_settings', settings['django_local_settings'], context)
+    _upload_template('config_templates/local_settings.template', settings['django_local_settings'], context)
 
     sudo('systemctl restart gunicorn')
 

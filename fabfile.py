@@ -161,6 +161,10 @@ def _configure_env():
     settings = get_local_settings()
 
     run('if ! test -d {env}; then virtualenv --python=python3 {env}; fi'.format(env=settings['project_env']))
+    sudo('chown -R {user}:{group} {env}'.format(
+        env=settings['project_env'],
+        group=settings['remote_group'],
+        user=settings['remote_user']))
 
     with prefix('. {activate}'.format(activate=settings['venv_activate'])):
         req = os.path.join(settings['remote_project_dir'], 'requirements.txt')

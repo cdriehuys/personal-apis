@@ -1,0 +1,12 @@
+[Unit]
+Description=gunicorn daemon
+After=network.target
+
+[Service]
+User={{ user }}
+Group={{ group }}
+WorkingDirectory={{ working_directory }}
+ExecStart={{ gunicorn }} --workers {{ gunicorn_workers }} --bind {{ proxy_address }} {{ wsgi_application }}
+
+[Install]
+WantedBy=mult-user.target

@@ -16,10 +16,11 @@ Including another URLconf
 from django.conf.urls import include, url
 from django.contrib import admin
 
-from rest_framework_jwt.views import obtain_jwt_token
+from rest_framework_jwt.views import obtain_jwt_token, refresh_jwt_token
 
 auth_urls = [
-    url(r'^token', obtain_jwt_token),
+    url(r'^token/$', obtain_jwt_token),
+    url(r'^token/refresh/$', refresh_jwt_token),
 ]
 
 

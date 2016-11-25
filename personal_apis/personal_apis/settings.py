@@ -131,6 +131,11 @@ REST_FRAMEWORK = {
     ),
 }
 
+# Rest Framework - JWT Settings
+JWT_AUTH = {
+    'JWT_ALLOW_REFRESH': True,
+}
+
 
 # Import local settings if they exist
 try:

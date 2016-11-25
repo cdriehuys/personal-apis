@@ -142,7 +142,7 @@ def update_remote():
     _upload_template('config_templates/local_settings.template', settings['django_local_settings'], context)
 
     # Run migrations and collect static files
-    with cd(settings['remote_project_dir']), prefix(settings['venv_activate']):
+    with cd(settings['remote_project_dir']), prefix('source {activate}'.format(activate=settings['venv_activate'])):
         manage_cmd = '{package}/manage.py'.format(package=settings['project_package'])
 
         def management_cmd(cmd):

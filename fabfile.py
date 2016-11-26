@@ -221,8 +221,7 @@ def _configure_nginx():
 
     context = {
         'domain_name': env.host,
-        'proxy_address': settings['gunicorn_proxy'],
-        'static_root': settings['django_static_root'],
+        'web_root': settings['letsencrypt_web_root'],
     }
 
     _upload_template('config_templates/nginx-conf-basic.template', settings['nginx_conf'], context, use_sudo=True)

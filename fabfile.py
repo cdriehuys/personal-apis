@@ -8,6 +8,7 @@ from fabric.api import cd, env, local, prefix, put, run, sudo, task
 
 required_packages = (
     'git',
+    'letsencrypt',
     'libpq-dev',
     'postgresql', 'postgresql-contrib',
     'nginx',
@@ -33,6 +34,8 @@ def get_local_settings():
     settings['project_package'] = 'personal_apis'
     settings['project_url'] = 'https://github.com/cdriehuys/personal-apis'
 
+    settings['email'] = 'cdriehuys@gmail.com'
+
     settings['remote_user'] = 'chathan'
     settings['remote_group'] = 'www-data'
 
@@ -40,10 +43,12 @@ def get_local_settings():
     settings['remote_project_dir'] = os.path.join(settings['remote_home'], settings['project_name'])
     settings['project_env'] = os.path.join(settings['remote_project_dir'], 'env')
 
+    settings['web_root'] = os.path.join('/', 'var', 'www', env.host)
+
     # Django Settings
     settings['django_local_settings'] = os.path.join(settings['remote_project_dir'], settings['project_package'],
                                                      settings['project_package'], 'local_settings.py')
-    settings['django_static_root'] = os.path.join('/', 'var', 'www', env.host, 'static')
+    settings['django_static_root'] = os.path.join(settings['web_root'], 'static')
 
     # Gunicorn Settings
     settings['gunicorn_application'] = '{package}.wsgi:application'.format(package=settings['project_package'])
@@ -56,9 +61,25 @@ def get_local_settings():
     settings['gunicorn_workers'] = '3'
     settings['gunicorn_working_dir'] = os.path.join(settings['remote_project_dir'], settings['project_package'])
 
+    # Letsencrypt Settings
+    settings['letsencrypt_cert_dir'] = os.path.join('/', 'etc', 'letsencrypt', 'live', env.host)
+
+    settings['letsencrypt_bin'] = os.path.join('/', 'usr', 'bin', 'letsencrypt')
+    settings['letsencrypt_cert'] = os.path.join(settings['letsencrypt_cert_dir'], 'fullchain.pem')
+    settings['letsencrypt_dh_cert'] = os.path.join('/', 'etc', 'ssl', 'certs', 'dhparam.pem')
+    settings['letsencrypt_dh_cmd'] = 'openssl dhparam -out {dh_cert} 2048'.format(
+        dh_cert=settings['letsencrypt_dh_cert'])
+    settings['letsencrypt_key'] = os.path.join(settings['letsencrypt_cert_dir'], 'privkey.pem')
+    settings['letsencrypt_log'] = os.path.join('/', 'var', 'log', 'le-renew.log')
+    settings['letsencrypt_web_root'] = os.path.join(settings['web_root'], 'html')
+
     # Nginx Settings
     settings['nginx_conf'] = os.path.join('/', 'etc', 'nginx', 'sites-available', env.host)
     settings['nginx_enabled_dir'] = os.path.join('/', 'etc', 'nginx', 'sites-enabled')
+    settings['nginx_snippet_dir'] = os.path.join('/', 'etc', 'nginx', 'snippets')
+    settings['nginx_ssl_domain_snippet'] = os.path.join(settings['nginx_snippet_dir'], 'ssl-{domain}.conf'.format(
+        domain=env.host))
+    settings['nginx_ssl_params_snippet'] = os.path.join(settings['nginx_snippet_dir'], 'ssl-params.conf')
 
     # Virtualenv Settings
     settings['venv_activate'] = os.path.join(settings['project_env'], 'bin', 'activate')
@@ -105,6 +126,7 @@ def prepare_remote():
 
     _configure_gunicorn()
     _configure_nginx()
+    _configure_ssl()
 
     # Make sure static dir exists
     sudo('if ! test -d {static_dir}; then mkdir -p {static_dir}; fi'.format(static_dir=settings['django_static_root']))
@@ -203,12 +225,104 @@ def _configure_nginx():
         'static_root': settings['django_static_root'],
     }
 
-    _upload_template('config_templates/nginx-conf.template', settings['nginx_conf'], context, use_sudo=True)
+    _upload_template('config_templates/nginx-conf-basic.template', settings['nginx_conf'], context, use_sudo=True)
     sudo('ln -fs {conf} {enabled_dir}'.format(conf=settings['nginx_conf'], enabled_dir=settings['nginx_enabled_dir']))
 
     # Test and restart
     sudo('nginx -t')
     sudo('systemctl restart nginx')
+
+
+def _configure_ssl():
+    """
+    Configure SSL on the remote machine.
+
+    Ensures the letsencrypt certificate is set up and renewed.
+    """
+    settings = get_local_settings()
+
+    configured = sudo('if test -d {cert_dir}; then echo exists; fi'.format(cert_dir=settings['letsencrypt_cert_dir']))
+
+    if configured == 'exists':
+        _renew_ssl()
+    else:
+        _set_up_ssl()
+
+    # Configure NGINX to use SSL
+    context = {
+        'domain_name': env.host,
+        'proxy_address': settings['gunicorn_proxy'],
+        'ssl_domain_snippet': settings['nginx_ssl_domain_snippet'],
+        'ssl_params_snippet': settings['nginx_ssl_params_snippet'],
+        'static_root': settings['django_static_root'],
+    }
+    _upload_template('config_templates/nginx-conf.template',
+                     settings['nginx_conf'],
+                     context,
+                     use_sudo=True)
+
+    context = {
+        'cert_path': settings['letsencrypt_cert'],
+        'key_path': settings['letsencrypt_key'],
+    }
+    _upload_template('config_templates/ssl-domain.template',
+                     settings['nginx_ssl_domain_snippet'],
+                     context,
+                     use_sudo=True)
+
+    context = {
+        'dh_cert': settings['letsencrypt_dh_cert'],
+    }
+    _upload_template('config_templates/ssl-params.template',
+                     settings['nginx_ssl_params_snippet'],
+                     context,
+                     use_sudo=True)
+
+    # Test and restart NGINX
+    sudo('nginx -t')
+    sudo('systemctl restart nginx')
+
+    # Configure auto renewals
+    with cd('/tmp'):
+        run('echo "30 2 * * 1 {letsencrypt} renew >> {log}" > newcron'.format(
+            letsencrypt=settings['letsencrypt_bin'],
+            log=settings['letsencrypt_log']))
+        run('echo "35 2 * * 1 /bin/systemctl reload nginx" >> newcron')
+        run('crontab newcron')
+        run('rm newcron')
+
+
+def _renew_ssl():
+    """
+    Attempt to renew the SSL certs on the server.
+    """
+    sudo('letsencrypt renew')
+
+
+def _set_up_ssl():
+    """
+    Set up a new SSL cert on the server.
+    """
+    settings = get_local_settings()
+
+    sudo('if ! test -d {web_root}; then mkdir -p {web_root}; fi'.format(web_root=settings['letsencrypt_web_root']))
+    sudo('chown -R {user}:{group} {web_root}'.format(
+        group=settings['remote_group'],
+        user=settings['remote_user'],
+        web_root=settings['letsencrypt_web_root']))
+
+    cmd = ' '.join([
+        'letsencrypt certonly',
+        '-a webroot',
+        '--agree-tos',
+        '-d {0}'.format(env.host),
+        '--email {email}'.format(email=settings['email']),
+        '--webroot-path={web_root}'.format(web_root=settings['letsencrypt_web_root']),
+    ])
+    sudo(cmd)
+
+    # Create Diffie-Hellman group
+    sudo(settings['letsencrypt_dh_cmd'])
 
 
 def _upload_template(template_name, dest_path, context=None, **kwargs):

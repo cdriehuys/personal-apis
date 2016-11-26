@@ -28,4 +28,5 @@ auth_urls = [
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
     url(r'^auth/', include(auth_urls)),
+    url(r'^todo/', include('todo_api.urls', namespace='todo-api')),
 ]

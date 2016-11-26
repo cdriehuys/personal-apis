@@ -10,7 +10,6 @@ def test_deserialize(user_factory):
     """
     user = user_factory()
     data = {
-        'user': user.pk,
         'title': 'Test Task',
         'description': 'Test task description.',
         'done': False,
@@ -20,7 +19,7 @@ def test_deserialize(user_factory):
 
     assert serializer.is_valid()
 
-    task = serializer.save()
+    task = serializer.save(user=user)
 
     assert Task.objects.count() == 1
     assert task.user == user

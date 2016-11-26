@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from rest_framework.reverse import reverse
 
 
 class Task(models.Model):
@@ -24,3 +25,12 @@ class Task(models.Model):
             The task's ``title`` attribute.
         """
         return self.title
+
+    def get_absolute_url(self) -> str:
+        """
+        Get the URL of the task's detail view.
+
+        Returns:
+            The URL of the task's detail view.
+        """
+        return reverse('todo-api:task-detail', kwargs={'pk': self.pk})

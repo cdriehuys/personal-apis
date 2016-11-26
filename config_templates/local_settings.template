@@ -3,3 +3,22 @@ ALLOWED_HOSTS = [
 ]
 
 STATIC_ROOT = '{{ static_root }}'
+
+
+# Cookie Settings
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+
+# Security Options
+CSRF_COOKIE_HTTPONLY = True
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_SSL_REDIRECT = True
+X_FRAME_OPTIONS = 'DENY'
+
+
+# Import secure settings
+try:
+    from {{ package_name }}.secure_settings import *
+except ImportError:
+    pass

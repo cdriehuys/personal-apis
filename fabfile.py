@@ -48,6 +48,8 @@ def get_local_settings():
     # Django Settings
     settings['django_local_settings'] = os.path.join(settings['remote_project_dir'], settings['project_package'],
                                                      settings['project_package'], 'local_settings.py')
+    settings['django_secure_settings'] = os.path.join(settings['remote_project_dir'], settings['project_package'],
+                                                      settings['project_package'], 'secure_settings.py')
     settings['django_static_root'] = os.path.join(settings['web_root'], 'static')
 
     # Gunicorn Settings
@@ -159,9 +161,20 @@ def update_remote():
     # Upload new local settings
     context = {
         'domain_name': env.host,
+        'package_name': settings['project_package'],
         'static_root': settings['django_static_root'],
     }
     _upload_template('config_templates/local_settings.template', settings['django_local_settings'], context)
+
+    # Make sure secure settings are present
+    exists = run('if test -f {secure_file}; then echo exists; fi'.format(
+        secure_file=settings['django_secure_settings']))
+
+    if exists != 'exists':
+        run('touch {0}'.format(settings['django_secure_settings']))
+        run('echo "SECRET_KEY = \'{key}\'" > {settings}'.format(
+            key=input('Django secret key: '),
+            settings=settings['django_secure_settings']))
 
     # Run migrations and collect static files
     with cd(settings['remote_project_dir']), prefix('source {activate}'.format(activate=settings['venv_activate'])):

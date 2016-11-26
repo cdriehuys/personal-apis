@@ -22,6 +22,7 @@ auth_urls = [
     url(r'^register/', include('rest_registration.urls', namespace='rest-registration')),
     url(r'^token/$', obtain_jwt_token),
     url(r'^token/refresh/$', refresh_jwt_token),
+    url(r'^', include('rest_framework.urls', namespace='rest_framework')),
 ]
 
 
